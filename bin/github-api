@@ -89,6 +89,16 @@ def commits(owner, repo, headers=None):
         request(links['last'], headers=headers)
 
 
+def watchers(owner, repo, headers=None):
+    path = '/repos/{owner}/{repo}/subscribers'.format(owner=owner, repo=repo)
+    response = request(prepare_url(path), headers=headers, params={'per_page': 100})
+    links = dict(_parse_links(response.headers.get('Link', '')))
+    # if there's only one page of commits, there won't be a rel="last" link
+    if 'last' in links:
+        logger.info('...')
+        request(links['last'], headers=headers)
+
+
 def contents(owner, repo, path, headers=None, params=None):
     path = '/repos/{owner}/{repo}/contents/{path}'.format(owner=owner, repo=repo, path=path)
     request(prepare_url(path), headers=headers, params=params)
@@ -104,6 +114,10 @@ def path_command(opts, headers):
 
 def commits_command(opts, headers):
     commits(opts.owner, opts.repo, headers=headers)
+
+
+def watchers_command(opts, headers):
+    watchers(opts.owner, opts.repo, headers=headers)
 
 
 def contents_command(opts, headers):
@@ -132,6 +146,11 @@ def main():
     parser_commits.add_argument('-o', '--owner', help='repository owner (user/organization)')
     parser_commits.add_argument('-r', '--repo', help='repository name')
     parser_commits.set_defaults(func=commits_command)
+
+    parser_contents = subparsers.add_parser('watchers')
+    parser_contents.add_argument('-o', '--owner', help='repository owner (user/organization)')
+    parser_contents.add_argument('-r', '--repo', help='repository name')
+    parser_contents.set_defaults(func=watchers_command)
 
     parser_contents = subparsers.add_parser('contents')
     parser_contents.add_argument('-o', '--owner', help='repository owner (user/organization)')
