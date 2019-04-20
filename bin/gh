@@ -1,19 +1,57 @@
-#!/usr/bin/env perl
+#!/usr/bin/env bash
+set -euo pipefail
 
-# types of github links:
-# 1. git@github.com:chbrown/scripts.git      (ssh)
-# 2. git://github.com/chbrown/scripts.git    (git)
-# 3. https://github.com/chbrown/scripts.git  (https)
+# this regular expression comes from https://stackoverflow.com/a/45977232
+URI_REGEX='^(([^:/?#]+):)?(//((([^:/?#]+)@)?([^:/?#]+)(:([0-9]+))?))?(/([^?#]*))(\?([^#]*))?(#(.*))?'
+#           ↑↑            ↑  ↑↑↑            ↑         ↑ ↑            ↑ ↑        ↑  ↑        ↑ ↑
+#           |2 scheme     |  ||6 userinfo   7 host    | 9 port       | 11 rpath |  13 query | 15 fragment
+#           1 scheme:     |  |5 userinfo@             8 :...         10 path    12 ?...     14 #...
+#                         |  4 authority
+#                         3 //...
 
-open(GIT, "git remote --verbose |") || die "Failed: $!\n";
-# basic `git remote -v` output:
-# NAME PROTOCOLREPO (DIRECTION)
-# $1           $2    $3
-# (perl regex matches)
-while (my $line = <GIT>) {
-  if ($line =~ /^(\w+)\s+\S+?github\.com[:\/](.+?)(\.git)?\s+\(fetch\)$/) {
-    my $url = "https://github.com/$2";
-    print "$url\n";
-    system("open", $url);
-  }
+remote_to_web() {
+  # take a git remote URL and return the corresponding web URL
+  #
+  # get the current branch name; TODO: omit if it's the remote's default branch
+  BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  # get the relative path to the current working directory
+  PREFIX=$(git rev-parse --show-prefix)
+  # parse the given git remote URL
+  if [[ "$1" =~ $URI_REGEX ]]; then
+    HOST=${BASH_REMATCH[7]}
+    RPATH=${BASH_REMATCH[11]}
+    if [[ $HOST == github.com ]]; then
+      # github URL format:
+      # https://github.com/$user/$repo/tree/$branch/$subdir
+      printf 'https://github.com/%s/tree/%s/%s' "${RPATH%.git}" "$BRANCH" "$PREFIX"
+    elif [[ $HOST == *bitbucket* ]]; then
+      # hosted bitbucket URL format:
+      # https://$host/projects/$project/repos/$repo/browse/$subdir?at=$branch
+      # this is probably fragile;
+      # TODO: is there a git(+ssh) command to get the equivalent web URL?
+      PROJECT=$(dirname "$RPATH")
+      REPO=$(basename -s .git "$RPATH")
+      printf 'https://%s/projects/%s/repos/%s/browse/%s?at=%s' "$HOST" "$PROJECT" "$REPO" "$PREFIX" "$BRANCH"
+    else
+      >&2 printf 'Cannot determine web URL for "%s"\n' "$1"
+      return 1
+    fi
+  else
+    >&2 printf 'Cannot parse "%s" as a URL\n' "$1"
+    return 1
+  fi
 }
+
+mapfile -t REMOTES < <(git remote)
+for REMOTE in "${REMOTES[@]}"; do
+  REMOTE_URL=$(git remote get-url "$REMOTE")
+  if [[ $REMOTE_URL =~ ^([^:/?#]+@)?([^:/?#]+):([^/].+) ]]; then
+    #                   ↑           ↑          ↑
+    #                   1 user      2 host     3 path + query + fragment
+    >&2 printf 'Fixing "alternative scp-like syntax": "%s"\n' "$REMOTE_URL"
+    REMOTE_URL=ssh://${BASH_REMATCH[1]}${BASH_REMATCH[2]}/${BASH_REMATCH[3]}
+  fi
+  WEB_URL=$(remote_to_web "$REMOTE_URL")
+  >&2 printf 'Opening "%s" in browser\n' "$WEB_URL"
+  open "$WEB_URL"
+done
