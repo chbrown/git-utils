@@ -1,129 +1,24 @@
-#!/usr/bin/env python
-import re
-import os
-import sys
-import json
-import urllib
-import logging
 import argparse
-import requests
+import logging
+import os
+
+from . import github
 
 
-logger = logging.getLogger("github-api")
+def path_command(opts, client: github.Client):
+    client.request(opts.path)
 
 
-def remove_urls(x):
-    """
-    Remove keys ending with 'url' from `x`, recursing into dicts and lists.
-    """
-    if isinstance(x, dict):
-        return dict((k, remove_urls(v)) for k, v in x.items() if not k.endswith("url"))
-    if isinstance(x, list):
-        return [remove_urls(y) for y in x]
-    return x
+def commits_command(opts, client: github.Client):
+    client.commits(opts.owner, opts.repo)
 
 
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, requests.models.CaseInsensitiveDict):
-            return dict(o.items())
-        return json.JSONEncoder.default(self, o)
-
-    def print(self, o, file=sys.stdout, flush=True):
-        print(self.encode(o), file=file, flush=flush)
+def watchers_command(opts, client: github.Client):
+    client.watchers(opts.owner, opts.repo)
 
 
-def prepare_url(url):
-    """
-    Prefix `url` with the API root if it does not already start with it.
-    """
-    return urllib.parse.urljoin("https://api.github.com/", url)
-
-
-def request(url, method="GET", headers=None, params=None):
-    """
-    Perform generic GitHub API request, printing results to stdout.
-    """
-    logger.debug("Requesting URL: %s", url)
-    response = requests.request(method, url, headers=headers, params=params)
-
-    # only pretty-print if stdout is a TTY (not piped anywhere else)
-    indent = 2 if sys.stdout.isatty() else None
-    encoder = CustomJSONEncoder(ensure_ascii=False, sort_keys=True, indent=indent)
-
-    logger.info("response headers: %s", response.headers)
-
-    result = response.json()
-    result = remove_urls(result)
-
-    if isinstance(result, dict):
-        encoder.print(result)
-    else:
-        for item in result:
-            encoder.print(item)
-    return response
-
-
-def _parse_links(links_string):
-    """
-    Parse a header string like: (the newline should be just a single space)
-    '<https://api.github.com/repositories/12345/commits?page=2>; rel="next",
-     <https://api.github.com/repositories/12345/commits?page=5>; rel="last"'
-    into a key-value pairs with these possible keys: next, last, first, prev
-    """
-    # The filter(None, ...) handles the case where links_string is the empty string
-    for link_string in filter(None, re.split(r",\s*", links_string)):
-        href_string, rel_string = re.split(r";\s*", link_string)
-        href_match = re.match(r"<(.+)>", href_string)
-        rel_match = re.match(r'rel="(.+)"', rel_string)
-        yield rel_match.group(1), href_match.group(1)
-
-
-def commits(owner, repo, headers=None):
-    path = "/repos/{owner}/{repo}/commits".format(owner=owner, repo=repo)
-    response = request(prepare_url(path), headers=headers, params={"per_page": 100})
-    links = dict(_parse_links(response.headers.get("Link", "")))
-    # if there's only one page of commits, there won't be a rel="last" link
-    if "last" in links:
-        logger.info("...")
-        request(links["last"], headers=headers)
-
-
-def watchers(owner, repo, headers=None):
-    path = "/repos/{owner}/{repo}/subscribers".format(owner=owner, repo=repo)
-    response = request(prepare_url(path), headers=headers, params={"per_page": 100})
-    links = dict(_parse_links(response.headers.get("Link", "")))
-    # if there's only one page of commits, there won't be a rel="last" link
-    if "last" in links:
-        logger.info("...")
-        request(links["last"], headers=headers)
-
-
-def contents(owner, repo, path, headers=None, params=None):
-    path = "/repos/{owner}/{repo}/contents/{path}".format(
-        owner=owner, repo=repo, path=path
-    )
-    request(prepare_url(path), headers=headers, params=params)
-
-
-# CLI command funcs
-# =================
-
-
-def path_command(opts, headers):
-    request(prepare_url(opts.path), headers=headers)
-
-
-def commits_command(opts, headers):
-    commits(opts.owner, opts.repo, headers=headers)
-
-
-def watchers_command(opts, headers):
-    watchers(opts.owner, opts.repo, headers=headers)
-
-
-def contents_command(opts, headers):
-    contents(opts.owner, opts.repo, opts.path, headers=headers)
+def contents_command(opts, client: github.Client):
+    client.contents(opts.owner, opts.repo, opts.path)
 
 
 def main():
@@ -182,18 +77,21 @@ def main():
     opts = parser.parse_args()
 
     loglevel = 30 - (opts.verbose * 10)
-    # (none) = 0 => WARNING = 30, -v = 1 => INFO = 20, -vv = 2 => DEBUG = 10, -vvv = 3 => NOTSET = 0
+    # (none) = 0 => 30 = WARNING
+    # -v     = 1 => 20 = INFO
+    # -vv    = 2 => 10 = DEBUG
+    # -vvv   = 3 =>  0 = NOTSET
     logging.basicConfig(level=loglevel)
+    logger = logging.getLogger("github-api")
     logger.debug("Logging at level %d", loglevel)
 
-    headers = {"Accept": "application/vnd.github.v3+json"}
     if opts.token:
-        headers["Authorization"] = "token {}".format(opts.token)
-        logger.info("Using token: %s...", opts.token[:7])
+        api = github.API.from_token(opts.token)
     else:
         logger.warning("Could not find token; continuing without authentication.")
+        api = github.API()
 
-    opts.func(opts, headers)
+    opts.func(opts, api)
 
 
 if __name__ == "__main__":
