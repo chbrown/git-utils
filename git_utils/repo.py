@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Iterable, Iterator, List, Set, Tuple
+from tempfile import TemporaryDirectory
+from typing import Iterable, Iterator, List, Optional, Set, Tuple
 
 from git import Commit, Head, Repo
 
@@ -46,3 +47,25 @@ def info_lines(
                     line = line.strip()
                     if not line.startswith("#"):
                         yield name, line
+
+
+class TemporaryRepo(Repo):
+    # pylint: disable=arguments-differ
+    """
+    Acts like a Repo but overrides `clone_from` and `close` in order to create and
+    delete a temporary directory.
+    """
+
+    temporary_directory: Optional[TemporaryDirectory] = None
+
+    @classmethod
+    def clone_from(cls, url: str, bare: bool = True, **kwargs) -> "TemporaryRepo":
+        temporary_directory = TemporaryDirectory(suffix=".git", prefix="repo-")
+        repo = super().clone_from(url, temporary_directory.name, bare=bare, **kwargs)
+        repo.temporary_directory = temporary_directory
+        return repo
+
+    def close(self):
+        super().close()
+        if self.temporary_directory:
+            self.temporary_directory.cleanup()
