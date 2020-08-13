@@ -8,30 +8,10 @@ import sys
 import urllib
 
 from requests import Session, Response
-from requests.models import CaseInsensitiveDict
+
+from git_utils.util import delete_keys, CustomJSONEncoder
 
 logger = logging.getLogger(__name__)
-
-
-def delete_keys(value: Any, pred: Callable[[str], bool]) -> Any:
-    """
-    Remove key-value pairs where pred(key) is True, recursing into dicts and lists.
-    """
-    if isinstance(value, dict):
-        return {k: delete_keys(v, pred) for k, v in value.items() if not pred(k)}
-    if isinstance(value, list):
-        return [delete_keys(item, pred) for item in value]
-    return value
-
-
-delete_url_keys = partial(delete_keys, pred=lambda k: k.endswith("url"))
-
-
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, CaseInsensitiveDict):
-            return dict(o.items())
-        return json.JSONEncoder.default(self, o)
 
 
 def print_response(response: Response):
@@ -49,7 +29,7 @@ def print_response(response: Response):
 
     result = response.json()
     # remove keys ending with 'url'
-    result = delete_url_keys(result)
+    result = delete_keys(result, lambda k: k.endswith("url"))
 
     if isinstance(result, dict):
         json.dump(result, sys.stdout, **dump_kwargs)
