@@ -1,7 +1,11 @@
-import argparse
+from typing import List
 import os
 import re
 import subprocess
+
+import click
+
+import git_utils
 
 committed_re = re.compile(r"^## ([-a-z]+)...origin/\1\s*$")
 
@@ -15,25 +19,26 @@ MAGENTA = "\x1b[35m"
 RESET_FORE = "\x1b[39m"
 
 
-def reverse(string):
+def reverse(string: str) -> str:
     return REVERSE + string + RESET_ALL
 
 
-def fore(color, string):
+def fore(color: str, string: str) -> str:
     return color + string + RESET_FORE
 
 
-def print_git_report(git_dir, verbose=False):
+def print_git_report(git_dir: str, verbose: bool = False):
     git_proc = subprocess.run(
         ["git", "status", "-sb"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=git_dir,
         universal_newlines=True,
+        check=False,
     )
     if git_proc.returncode == 0 and committed_re.match(git_proc.stdout):
         if verbose:
-            print("({} is clean and committed)".format(git_dir))
+            print(f"({git_dir} is clean and committed)")
     else:
         print(reverse(git_dir))
         # print "$?", git_process.returncode
@@ -57,25 +62,25 @@ def print_git_report(git_dir, verbose=False):
             print(git_proc.stderr)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Print statuses for a list of git repositories",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Log extra information"
-    )
-    parser.add_argument(
-        "git_dirs",
-        nargs="*",
-        default=[child for child in os.listdir() if os.path.isdir(child)],
-        help="Git repositories",
-    )
-    opts = parser.parse_args()
+@click.command()
+@click.version_option(git_utils.__version__)
+@click.argument("git_dirs", type=click.Path(exists=True, file_okay=False), nargs=-1)
+@click.option("-v", "--verbose", is_flag=True, help="Log extra information")
+def cli(git_dirs: List[str], verbose: bool):
+    """
+    Print statuses for multiple git repositories.
 
-    for git_dir in opts.git_dirs:
-        print_git_report(git_dir)
+    GIT_DIRS defaults to child directories of the current working directory.
+    """
+    if not git_dirs:
+        git_dirs = [child for child in os.listdir() if os.path.isdir(child)]
+
+    for git_dir in git_dirs:
+        print_git_report(git_dir, verbose)
+
+
+main = cli.main
 
 
 if __name__ == "__main__":
-    exit(main())
+    main()
