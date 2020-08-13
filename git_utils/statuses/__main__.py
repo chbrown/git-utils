@@ -3,28 +3,20 @@ import os
 import re
 import subprocess
 
+from colorama import Fore, Style
 import click
 
 import git_utils
 
-committed_re = re.compile(r"^## ([-a-z]+)...origin/\1\s*$")
-
-RESET_ALL = "\x1b[0m"
-REVERSE = "\x1b[7m"
-RED = "\x1b[31m"
-GREEN = "\x1b[32m"
-YELLOW = "\x1b[33m"
-BLUE = "\x1b[34m"
-MAGENTA = "\x1b[35m"
-RESET_FORE = "\x1b[39m"
+COMMITTED_PATTERN = r"^## ([-a-z]+)...origin/\1\s*$"
 
 
 def reverse(string: str) -> str:
-    return REVERSE + string + RESET_ALL
+    return "\x1b[7m" + string + Style.RESET_ALL
 
 
 def fore(color: str, string: str) -> str:
-    return color + string + RESET_FORE
+    return color + string + Fore.RESET
 
 
 def print_git_report(git_dir: str, verbose: bool = False):
@@ -36,7 +28,7 @@ def print_git_report(git_dir: str, verbose: bool = False):
         universal_newlines=True,
         check=False,
     )
-    if git_proc.returncode == 0 and committed_re.match(git_proc.stdout):
+    if git_proc.returncode == 0 and re.match(COMMITTED_PATTERN, git_proc.stdout):
         if verbose:
             print(f"({git_dir} is clean and committed)")
     else:
@@ -44,17 +36,17 @@ def print_git_report(git_dir: str, verbose: bool = False):
         # print "$?", git_process.returncode
         if git_proc.stdout:
             branch, changes = git_proc.stdout.split("\n", 1)
-            if not committed_re.match(branch):
-                print(fore(MAGENTA, branch))
+            if not re.match(COMMITTED_PATTERN, branch):
+                print(fore(Fore.MAGENTA, branch))
             for change in changes.split("\n"):
                 if change.startswith(" M"):
-                    print(fore(BLUE, change))
+                    print(fore(Fore.BLUE, change))
                 elif change.startswith(" A"):
-                    print(fore(GREEN, change))
+                    print(fore(Fore.GREEN, change))
                 elif change.startswith(" D"):
-                    print(fore(RED, change))
+                    print(fore(Fore.RED, change))
                 elif change.startswith("??"):
-                    print(fore(YELLOW, change))
+                    print(fore(Fore.YELLOW, change))
                 else:
                     print(change)
         if git_proc.stderr:
