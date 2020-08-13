@@ -2,22 +2,23 @@ import argparse
 import logging
 import os
 
-from git_utils import github
+from .api import API
+from .client import Client
 
 
-def path_command(opts, client: github.Client):
+def path_command(opts, client: Client):
     client.request(opts.path)
 
 
-def commits_command(opts, client: github.Client):
+def commits_command(opts, client: Client):
     client.commits(opts.owner, opts.repo)
 
 
-def watchers_command(opts, client: github.Client):
+def watchers_command(opts, client: Client):
     client.watchers(opts.owner, opts.repo)
 
 
-def contents_command(opts, client: github.Client):
+def contents_command(opts, client: Client):
     client.contents(opts.owner, opts.repo, opts.path)
 
 
@@ -86,10 +87,10 @@ def main():
     logger.debug("Logging at level %d", loglevel)
 
     if opts.token:
-        api = github.API.from_token(opts.token)
+        api = API.from_token(opts.token)
     else:
         logger.warning("Could not find token; continuing without authentication.")
-        api = github.API()
+        api = API()
 
     opts.func(opts, api)
 
