@@ -1,98 +1,92 @@
-import argparse
 import logging
 import os
 
+import click
+
+import git_utils
+from . import print_response
 from .api import API
-from .client import Client
 
 
-def path_command(opts, client: Client):
-    client.request(opts.path)
-
-
-def commits_command(opts, client: Client):
-    client.commits(opts.owner, opts.repo)
-
-
-def watchers_command(opts, client: Client):
-    client.watchers(opts.owner, opts.repo)
-
-
-def contents_command(opts, client: Client):
-    client.contents(opts.owner, opts.repo, opts.path)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Execute GitHub API requests",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-t",
-        "--token",
-        default=os.environ.get("GITHUB_TOKEN"),
-        help="authorization token",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="log extra information (repeat for even more)",
-    )
-
-    subparsers = parser.add_subparsers(
-        dest="subcommand", help="special-purpose subcommands"
-    )
-
-    # TODO: implement a default subcommand of nothing, somehow (argparse fail)
-    # see: https://stackoverflow.com/q/6365601
-    parser_path = subparsers.add_parser("path")
-    parser_path.add_argument("path", help='API path; e.g., "/user"')
-    parser_path.set_defaults(func=path_command)
-
-    parser_commits = subparsers.add_parser("commits")
-    parser_commits.add_argument(
-        "-o", "--owner", help="repository owner (user/organization)"
-    )
-    parser_commits.add_argument("-r", "--repo", help="repository name")
-    parser_commits.set_defaults(func=commits_command)
-
-    parser_contents = subparsers.add_parser("watchers")
-    parser_contents.add_argument(
-        "-o", "--owner", help="repository owner (user/organization)"
-    )
-    parser_contents.add_argument("-r", "--repo", help="repository name")
-    parser_contents.set_defaults(func=watchers_command)
-
-    parser_contents = subparsers.add_parser("contents")
-    parser_contents.add_argument(
-        "-o", "--owner", help="repository owner (user/organization)"
-    )
-    parser_contents.add_argument("-r", "--repo", help="repository name")
-    parser_contents.add_argument(
-        "-p", "--path", help="path in repository to list contents of"
-    )
-    parser_contents.set_defaults(func=contents_command)
-
-    opts = parser.parse_args()
-
-    loglevel = 30 - (opts.verbose * 10)
+@click.group(help="Execute GitHub API requests")
+@click.version_option(git_utils.__version__)
+@click.option(
+    "-t",
+    "--token",
+    default=os.environ.get("GITHUB_TOKEN"),
+    help="API authorization token.",
+)
+@click.option(
+    "-v", "--verbose", count=True, help="Log extra information (repeat for even more)."
+)
+@click.pass_context
+def cli(ctx: click.Context, token: str, verbose: int):
+    level = logging.WARNING - (verbose * 10)
     # (none) = 0 => 30 = WARNING
     # -v     = 1 => 20 = INFO
     # -vv    = 2 => 10 = DEBUG
     # -vvv   = 3 =>  0 = NOTSET
-    logging.basicConfig(level=loglevel)
+    logging.basicConfig(level=level)
     logger = logging.getLogger("github-api")
-    logger.debug("Logging at level %d", loglevel)
-
-    if opts.token:
-        api = API.from_token(opts.token)
+    logger.debug("Logging at level %d", level)
+    if token:
+        api = API.from_token(token)
     else:
         logger.warning("Could not find token; continuing without authentication.")
         api = API()
+    # pass along API instance to subcommands:
+    ctx.ensure_object(dict)
+    ctx.obj["api"] = api
 
-    opts.func(opts, api)
+
+@cli.command()
+@click.argument("path")
+@click.pass_context
+def path(ctx: click.Context, path: str):
+    """
+    Perform GitHub API request and print the response.
+
+    PATH is an arbitrary API path; e.g., "/user"
+    """
+    # TODO: figure out how to make this the default action
+    # (where it runs if none of the other subcommands match)
+    print_response(ctx.obj["api"].request(path))
+
+
+@cli.command()
+@click.option(
+    "-o", "--owner", required=True, help="repository owner (user/organization)"
+)
+@click.option("-r", "--repo", required=True, help="repository name")
+@click.pass_context
+def commits(ctx: click.Context, owner: str, repo: str):
+    ctx.obj["api"].commits(owner, repo)
+
+
+@cli.command()
+@click.option(
+    "-o", "--owner", required=True, help="repository owner (user/organization)"
+)
+@click.option("-r", "--repo", required=True, help="repository name")
+@click.pass_context
+def watchers(ctx: click.Context, owner: str, repo: str):
+    ctx.obj["api"].watchers(owner, repo)
+
+
+@cli.command()
+@click.option(
+    "-o", "--owner", required=True, help="repository owner (user/organization)"
+)
+@click.option("-r", "--repo", required=True, help="repository name")
+@click.option(
+    "-p", "--path", help="path in repository to list contents of", default="",
+)
+@click.pass_context
+def contents(ctx: click.Context, owner: str, repo: str, path: str):
+    ctx.obj["api"].contents(owner, repo, path)
+
+
+main = cli.main
 
 
 if __name__ == "__main__":
