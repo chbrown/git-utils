@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from . import github
+from git_utils import github
 
 
 def path_command(opts, client: github.Client):
