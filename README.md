@@ -7,7 +7,7 @@ Install with [GNU Stow](https://www.gnu.org/software/stow/):
 
     git clone https://github.com/chbrown/git-utils
     cd git-utils
-    stow -t /usr/local/bin bin
+    stow -t ~/.local/bin bin
 
 
 ## Functionality
