@@ -83,5 +83,5 @@ This is helpful because it's not easy to find when a repository was started on t
 
 ## License
 
-Copyright 2013–2018 Christopher Brown.
-[MIT Licensed](https://chbrown.github.io/licenses/MIT/#2013-2018).
+Copyright 2013–2020 Christopher Brown.
+[MIT Licensed](https://chbrown.github.io/licenses/MIT/#2013-2020).
