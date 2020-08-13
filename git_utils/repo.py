@@ -1,8 +1,25 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Iterable, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Set, Tuple
 
 from git import Commit, Head, Repo
+
+
+def find(
+    path: Path,
+    maxdepth: int = 1,
+    sortkey: Callable[[Path], Any] = lambda path: path.as_posix().casefold(),
+) -> Iterator[Path]:
+    """
+    Find git dirs via depth-first pre-order filesystem traversal.
+    Stops descending when a git dir is found or when maxdepth is reached.
+    E.g., maxdepth=1 searches children of `path` but no further.
+    """
+    if (path / ".git").exists():
+        yield path
+    elif maxdepth > 0:
+        for child in sorted(path.iterdir(), key=sortkey):
+            yield from find(child, maxdepth - 1, sortkey)
 
 
 def remotes_urls(repo: Repo) -> Set[str]:
