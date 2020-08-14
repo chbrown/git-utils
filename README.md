@@ -29,12 +29,12 @@ Wrapping around `git ls-remote --tags git://...` to get the good stuff:
 Assumes github.
 
 
-# git-statuses
+# git-summary
 
-Summarize multiple git repositories by running `git status -sb` on each one and color-coding the output (using ANSI escapes).
+Summarize multiple git repositories by running `git status ...` on each one and color-coding the output (using ANSI escapes).
 It's a quick way to see which repositories have uncommitted/unpushed changes.
 
-    git-statuses ~/github/*/
+    git-summary ~/github/*/
 
 
 ### git-submodule-rm
