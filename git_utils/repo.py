@@ -48,6 +48,18 @@ def other_files(repo: Repo) -> List[str]:
     return repo.git.ls_files(others=True).splitlines()
 
 
+def status(repo: Repo, branch: bool = False) -> List[Tuple[str, str]]:
+    """
+    Run `git status --porcelain=v1 [--branch]` and return a list of (XY, status) tuples.
+    If branch=True, the first of these which will have XY="##" and status indicating
+    the "branchname tracking info"; the rest (if any) will be path statuses.
+    """
+    return [
+        (line[:2], line[3:])
+        for line in repo.git.status(porcelain="v1", branch=branch).splitlines()
+    ]
+
+
 def info_lines(
     repo: Repo, ignore_names: Iterable[str] = ("refs",),
 ) -> Iterator[Tuple[str, str]]:
