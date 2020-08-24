@@ -3,6 +3,7 @@ from typing import Any, Callable, Iterator, Union
 import json
 import os
 import re
+import urllib.parse
 
 from requests.models import CaseInsensitiveDict
 
@@ -50,4 +51,25 @@ def normalize_url(url: str) -> str:
     if m := re.match(r"^([^:/?#]+@)?([^:/?#]+):([^/].+)$", url):
         #               ↑ 1=user    ↑ 2=host   ↑ 3=path + query + fragment
         return f"ssh://{m.group(1)}{m.group(2)}/{m.group(3)}"
+    return url
+
+
+HOSTNAME_ALIASES = {
+    "github.com": "github",
+    "gist.github.com": "gist",
+    "bitbucket.org": "bitbucket",
+    "gitlab.com": "gitlab",
+}
+
+
+def alias_url(url: str) -> str:
+    """
+    Shorten git URL to aliased form if possible, otherwise return URL unchanged.
+    """
+    split_result = urllib.parse.urlsplit(normalize_url(url))
+    if alias := HOSTNAME_ALIASES.get(split_result.hostname):
+        # remove leading slash and trailing .git from path
+        path = split_result.path.lstrip("/")
+        path = re.sub(r"\.git$", "", path)
+        return f"{alias}:{path}"
     return url
