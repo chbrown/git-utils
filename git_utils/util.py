@@ -1,5 +1,7 @@
-from typing import Any, Callable
+from pathlib import Path
+from typing import Any, Callable, Iterator, Union
 import json
+import os
 
 from requests.models import CaseInsensitiveDict
 
@@ -20,3 +22,21 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(o, CaseInsensitiveDict):
             return dict(o.items())
         return json.JSONEncoder.default(self, o)
+
+
+def walk(top: Union[Path, os.DirEntry]) -> Iterator[Union[Path, os.DirEntry]]:
+    """
+    Recursively iterate over all paths in `top`.
+    """
+    yield top
+    if top.is_dir():
+        for child in os.scandir(top):
+            yield from walk(child)
+
+
+def sumsize(top: Union[str, Path]) -> int:
+    """
+    Iterate through all paths in `top`, stat each one, and return total sum of sizes.
+    """
+    top = Path(top)
+    return sum(path.stat().st_size for path in walk(top))
