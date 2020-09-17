@@ -61,7 +61,7 @@ def status(repo: Repo, branch: bool = False) -> List[Tuple[str, str]]:
 
 
 def info_lines(
-    repo: Repo, ignore_names: Iterable[str] = ("refs",),
+    repo: Repo, ignore_names: Iterable[str] = ("refs",)
 ) -> Iterator[Tuple[str, str]]:
     """
     Iterate over (filename, line) pairs in .git/info/ directory, ignoring comments.

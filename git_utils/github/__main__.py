@@ -78,9 +78,7 @@ def watchers(ctx: click.Context, owner: str, repo: str):
     "-o", "--owner", required=True, help="repository owner (user/organization)"
 )
 @click.option("-r", "--repo", required=True, help="repository name")
-@click.option(
-    "-p", "--path", help="path in repository to list contents of", default="",
-)
+@click.option("-p", "--path", help="path in repository to list contents of", default="")
 @click.pass_context
 def contents(ctx: click.Context, owner: str, repo: str, path: str):
     ctx.obj["api"].contents(owner, repo, path)

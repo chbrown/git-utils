@@ -28,7 +28,7 @@ def get_or_create_repository(
             raise
         # otherwise, fine, we'll just create it
         return client.create_repository(
-            repositoryName=name, repositoryDescription=description, tags=tags,
+            repositoryName=name, repositoryDescription=description, tags=tags
         )
 
 
