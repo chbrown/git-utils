@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Any, Callable, Iterator, Union
+from typing import Any, Callable, Union
 import json
 import os
 import re
 import urllib.parse
 
+from filesystemlib import walk
 from requests.models import CaseInsensitiveDict
 
 
@@ -26,22 +27,11 @@ class CustomJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def walk(top: Union[Path, os.DirEntry]) -> Iterator[Union[Path, os.DirEntry]]:
-    """
-    Recursively iterate over all paths in `top`.
-    """
-    yield top
-    if top.is_dir():
-        for child in os.scandir(top):
-            yield from walk(child)
-
-
 def sumsize(top: Union[str, Path]) -> int:
     """
     Iterate through all paths in `top`, stat each one, and return total sum of sizes.
     """
-    top = Path(top)
-    return sum(path.stat().st_size for path in walk(top))
+    return sum(map(os.path.getsize, walk(Path(top))))
 
 
 def normalize_url(url: str) -> str:
