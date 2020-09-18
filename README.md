@@ -12,12 +12,12 @@ Install with [GNU Stow](https://www.gnu.org/software/stow/):
 
 ## Functionality
 
-### gh
+### git-browse
 
 Open any [GitHub](https://github.com/) page(s) which the current git repository has as remotes.
 
     cd ~/scripts
-    gh # opens https://github.com/chbrown/scripts in your browser
+    git-browse # opens https://github.com/chbrown/scripts in your browser
 
 
 ### git-remote-tags
