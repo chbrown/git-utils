@@ -1,8 +1,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
-from git import Commit, Head, Repo
+from git import Git, Commit, Head, Repo
 
 
 def find(
@@ -76,6 +76,24 @@ def info_lines(
                     line = line.strip()
                     if not line.startswith("#"):
                         yield name, line
+
+
+def ls_remote_tags(repo: Union[Repo, str]) -> Iterator[Tuple[str, str]]:
+    """
+    Iterate over (commit, tag) pairs from `git-ls-remote --tags`.
+    `repo` can be either an on-disk Repo or a URL.
+    """
+    git, args = (repo.git, ()) if isinstance(repo, Repo) else (Git(), (repo,))
+    lines = git.ls_remote(*args, tags=True, quiet=True).splitlines()
+    for line in lines:
+        commit, tag = line.split()
+        # discard tags that end with ^{} (what are those for?)
+        if tag.endswith("^{}"):
+            continue
+        if not tag.startswith("refs/tags/"):
+            raise ValueError(f"Encountered unrecognized tag: {tag}")
+        tag = tag[len("refs/tags/") :]
+        yield commit, tag
 
 
 class TemporaryRepo(Repo):
