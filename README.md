@@ -37,15 +37,6 @@ It's a quick way to see which repositories have uncommitted/unpushed changes.
     git-summary ~/github/*/
 
 
-### git-submodule-rm
-
-Until git 1.8.3 rolls around:
-
-    git-submodule-rm static/lib
-
-Thanks goes to [stackoverflow](http://stackoverflow.com/questions/1260748/how-do-i-remove-a-git-submodule).
-
-
 ### git.io
 
 Use the git.io URL shortener (https://git.io/blog-announcement) to shorten GitHub.com URLs.
