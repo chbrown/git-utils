@@ -1,5 +1,6 @@
+from collections.abc import Set
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Iterable, Union
 import json
 import os
 import re
@@ -63,3 +64,28 @@ def alias_url(url: str) -> str:
         path = re.sub(r"\.git$", "", path)
         return f"{alias}:{path}"
     return url
+
+
+class LazySet(Set):
+    def __init__(self, iterable: Iterable):
+        self.iterator = iter(iterable)
+        self.set = set()
+
+    def __contains__(self, item):
+        if item in self.set:
+            return True
+        for new_item in self.iterator:
+            self.set.add(new_item)
+            if item == new_item:
+                return True
+        return False
+
+    def __iter__(self):
+        for item in self.set:
+            yield item
+        for item in self.iterator:
+            self.set.add(item)
+            yield item
+
+    def __len__(self):
+        return sum(1 for _ in iter(self))
