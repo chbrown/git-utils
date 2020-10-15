@@ -4,8 +4,9 @@ import re
 import urllib.parse
 
 from botocore.exceptions import ClientError
+from git import Repo
 
-from .repo import TemporaryRepo
+from .repo import remotes_urls, TemporaryRepo
 from .util import sumsize, normalize_url, alias_url
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,35 @@ def mirror(
         logger.info("Pushing %r -> %r", url, cloneUrlSsh)
         repo.git.push("--mirror", cloneUrlSsh)
     # update "updated" tag with current timestamp
+    client.tag_resource(
+        resourceArn=resourceArn,
+        tags={"updated": datetime.now().astimezone().isoformat(timespec="seconds")},
+    )
+
+
+def archive(
+    client: "botocore.client.CodeCommit",
+    repo: Repo,
+    name: str,
+):
+    """
+    Archive git.Repo `repo` to existing or new CodeCommit repository.
+
+    Adds resulting CodeCommit (SSH) URL to `repo`'s remotes.
+    """
+    # throw if there's more than one non-CodeCommit remote
+    (url,) = (url for url in remotes_urls(repo) if not is_codecommit_url(url))
+    metadata = get_or_create_repository(
+        client, name, alias_url(url), {"group": "archive", "source": url}
+    ).get("repositoryMetadata")
+    # push from local Repo
+    cloneUrlSsh = metadata["cloneUrlSsh"]
+    logger.info("Pushing %r -> %r", repo, cloneUrlSsh)
+    repo.git.push("--mirror", cloneUrlSsh)
+    # add new remote
+    repo.create_remote("aws", cloneUrlSsh)
+    # update "updated" tag, even though we don't read from it
+    resourceArn = metadata["Arn"]
     client.tag_resource(
         resourceArn=resourceArn,
         tags={"updated": datetime.now().astimezone().isoformat(timespec="seconds")},
