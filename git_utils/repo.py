@@ -4,6 +4,8 @@ from typing import Any, Callable, Iterable, Iterator, List, Optional, Set, Tuple
 
 from git import Git, Commit, Head, Repo
 
+from .util import LazySet
+
 
 def find(
     path: Path,
@@ -116,3 +118,31 @@ class TemporaryRepo(Repo):
         super().close()
         if self.temporary_directory:
             self.temporary_directory.cleanup()
+
+
+def iter_clone_commits(url: str) -> Iterator[Commit]:
+    """
+    Clone remote to bare repo in temporary directory and iterate over all commits.
+
+    If clone fails for any reason, simply generates nothing.
+    """
+    try:
+        with TemporaryRepo.clone_from(url) as repo:
+            yield from heads_commits(repo)
+    except Exception:
+        pass
+
+
+def iter_commits_not_in_remotes(repo: Repo) -> Set[Commit]:
+    """
+    Select just the commits from the given repo not found in any remote,
+    cloning remote(s) into temporary directories as needed.
+    """
+    clone_binshas = LazySet(
+        commit.binsha
+        for url in remotes_urls(repo)
+        for commit in iter_clone_commits(url)
+    )
+    return {
+        commit for commit in heads_commits(repo) if commit.binsha not in clone_binshas
+    }
