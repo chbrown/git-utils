@@ -1,5 +1,7 @@
 from datetime import datetime
 import logging
+import re
+import urllib.parse
 
 from botocore.exceptions import ClientError
 
@@ -7,6 +9,12 @@ from .repo import TemporaryRepo
 from .util import sumsize, alias_url
 
 logger = logging.getLogger(__name__)
+
+
+def is_codecommit_url(urlstring: str) -> bool:
+    split_result = urllib.parse.urlsplit(urlstring)
+    hostname = split_result.hostname
+    return re.match(r"^git-codecommit\.[-0-9a-z]+\.amazonaws\.com$", hostname)
 
 
 def get_or_create_repository(
