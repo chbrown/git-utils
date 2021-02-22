@@ -58,6 +58,7 @@ class Client:
         logger.debug("Requesting URL: %s", url)
         response = self.session.request(method, url, **kwargs)
         logger.debug("Response headers: %s", response.headers)
+        response.raise_for_status()
         return response
 
     def get(self, url: str, **kwargs):
