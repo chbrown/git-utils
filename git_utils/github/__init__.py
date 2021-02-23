@@ -5,6 +5,8 @@ from requests import Response
 
 from git_utils.util import delete_keys, CustomJSONEncoder
 
+from .client import Client
+
 
 def print_response(response: Response):
     """
