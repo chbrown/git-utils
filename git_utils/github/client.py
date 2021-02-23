@@ -1,29 +1,14 @@
-from typing import Iterator, Tuple
+from typing import Iterator
 import logging
 import os
-import re
 import urllib
 
 from requests import Session, Response
+from requests.utils import parse_header_links
 
 from . import print_response
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_links(links_string: str) -> Iterator[Tuple[str, str]]:
-    """
-    Parse a header string like: (the newline should be just a single space)
-    '<https://api.github.com/repositories/12345/commits?page=2>; rel="next",
-     <https://api.github.com/repositories/12345/commits?page=5>; rel="last"'
-    into a key-value pairs with these possible keys: next, last, first, prev
-    """
-    # The filter(None, ...) handles the case where links_string is the empty string
-    for link_string in filter(None, re.split(r",\s*", links_string)):
-        href_string, rel_string = re.split(r";\s*", link_string)
-        href_match = re.match(r"<(.+)>", href_string)
-        rel_match = re.match(r'rel="(.+)"', rel_string)
-        yield rel_match.group(1), href_match.group(1)
 
 
 class Client:
@@ -77,7 +62,10 @@ class Client:
         kwargs.setdefault("params", {}).setdefault("per_page", 100)
         response = self.request(url, **kwargs)
         yield response
-        links = dict(_parse_links(response.headers.get("Link", "")))
+        links = {
+            link["rel"]: link["url"]
+            for link in parse_header_links(response.headers.get("Link", ""))
+        }
         # the last page has no rel="next" link
         if "next" in links:
             yield from self.iter_requests(links["next"], **kwargs)
@@ -93,7 +81,10 @@ class Client:
         kwargs.setdefault("params", {}).setdefault("per_page", 100)
         response = self.request(url, **kwargs)
         print_response(response)
-        links = dict(_parse_links(response.headers.get("Link", "")))
+        links = {
+            link["rel"]: link["url"]
+            for link in parse_header_links(response.headers.get("Link", ""))
+        }
         # jump to last page if there are multiple pages
         if "last" in links:
             logger.info("...")
