@@ -3,15 +3,14 @@ import logging
 import os
 import urllib
 
-from requests import Session, Response
-from requests.utils import parse_header_links
+import requests
 
 logger = logging.getLogger(__name__)
 
 
 class Client:
     def __init__(self):
-        self.session = Session()
+        self.session = requests.Session()
         self.session.headers["Accept"] = "application/vnd.github.v3+json"
 
     @classmethod
@@ -32,12 +31,12 @@ class Client:
         logger.debug("Authenticating with token: ...%s", token[-8:])
         return client
 
-    def request(self, url_or_path: str, method: str = "GET", **kwargs) -> Response:
+    def request(self, url: str, method: str = "GET", **kwargs) -> requests.Response:
         """
         Perform generic GitHub API request, returning Response model.
         """
-        # Prefix `url_or_path` with the API root if it does not already start with it.
-        url = urllib.parse.urljoin("https://api.github.com/", url_or_path)
+        # Prefix `url` with the API root if it does not already start with it.
+        url = urllib.parse.urljoin("https://api.github.com/", url)
         logger.debug("Requesting URL: %s", url)
         response = self.session.request(method, url, **kwargs)
         logger.debug("Response headers: %s", response.headers)
@@ -53,16 +52,17 @@ class Client:
     def delete(self, url: str, **kwargs):
         return self.request(url, method="DELETE", **kwargs)
 
-    def iter_requests(self, url: str, **kwargs) -> Iterator[Response]:
+    def iter_requests(self, url: str, **kwargs) -> Iterator[requests.Response]:
         """
         Iterate over paginated responses.
         """
         kwargs.setdefault("params", {}).setdefault("per_page", 100)
         response = self.request(url, **kwargs)
         yield response
+        link_header = response.headers.get("Link", "")
         links = {
             link["rel"]: link["url"]
-            for link in parse_header_links(response.headers.get("Link", ""))
+            for link in requests.utils.parse_header_links(link_header)
         }
         # the last page has no rel="next" link
         if "next" in links:
