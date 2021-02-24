@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 class Client:
     def __init__(self):
+        self.scheme = "https"
+        self.netloc = "api.github.com"
         self.session = requests.Session()
         self.session.headers["Accept"] = "application/vnd.github.v3+json"
 
@@ -35,8 +37,14 @@ class Client:
         """
         Perform generic GitHub API request, returning Response model.
         """
-        # Prefix `url` with the API root if it does not already start with it.
-        url = urllib.parse.urljoin("https://api.github.com/", url)
+        # set default scheme and netloc and separate query
+        scheme, netloc, path, query, fragment = urllib.parse.urlsplit(url)
+        url = urllib.parse.urlunsplit(
+            (scheme or self.scheme, netloc or self.netloc, path, None, fragment)
+        )
+        # merge query from url with params, giving precedence to values from url
+        if query:
+            kwargs.setdefault("params", {}).update(urllib.parse.parse_qsl(query))
         logger.debug("Requesting URL: %s", url)
         response = self.session.request(method, url, **kwargs)
         logger.debug("Response headers: %s", response.headers)
