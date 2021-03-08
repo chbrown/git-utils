@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Iterator
 import logging
 import re
 import urllib.parse
@@ -104,3 +105,36 @@ def archive(
         resourceArn=resourceArn,
         tags={"updated": datetime.now().astimezone().isoformat(timespec="seconds")},
     )
+
+
+def iter_repositories(client: "botocore.client.CodeCommit", **kwargs) -> Iterator[dict]:
+    """
+    Iterate over all repositories (through multiple pages if needed).
+    """
+    response = client.list_repositories(**kwargs)
+    yield from response["repositories"]
+    if nextToken := response.get("nextToken"):
+        kwargs |= {"nextToken": nextToken}
+        yield from iter_repositories(client, **kwargs)
+
+
+def iter_tags_for_resource(
+    client: "botocore.client.CodeCommit", resourceArn: str, **kwargs
+) -> Iterator[tuple[str, str]]:
+    """
+    Iterate over all tags (through multiple pages if needed).
+    """
+    response = client.list_tags_for_resource(resourceArn=resourceArn, **kwargs)
+    yield from response["tags"].items()
+    if nextToken := response.get("nextToken"):
+        kwargs |= {"nextToken": nextToken}
+        yield from iter_tags_for_resource(client, resourceArn, **kwargs)
+
+
+def get_metadata_and_tags(client: "botocore.client.CodeCommit", name: str) -> dict:
+    """
+    Get metadata and tags for a single repository by name.
+    """
+    metadata = client.get_repository(repositoryName=name).get("repositoryMetadata")
+    tags = dict(iter_tags_for_resource(client, metadata["Arn"]))
+    return metadata | {"tags": tags}
