@@ -74,6 +74,22 @@ class Client:
         for response in self.iter_responses(url, **kwargs):
             yield from response.json()
 
+    def iter_first_and_last_responses(
+        self, url: str, **kwargs
+    ) -> Iterator[requests.Response]:
+        kwargs.setdefault("params", {}).setdefault("per_page", 100)
+        response = self.request(url, **kwargs)
+        yield response
+        link_header = response.headers.get("Link", "")
+        links = {
+            link["rel"]: link["url"]
+            for link in requests.utils.parse_header_links(link_header)
+        }
+        # jump to last page if there are multiple pages
+        if "last" in links:
+            response = self.request(links["last"], **kwargs)
+            yield response
+
     def iter_repos(
         self,
         username: str = None,
