@@ -82,3 +82,99 @@ class Client:
         """
         for response in self.iter_responses(url, **kwargs):
             yield from response.json()
+
+    def iter_repos(
+        self,
+        username: str = None,
+        org: str = None,
+        type: str = None,  # all | owner | public | private | forks | sources | member | internal
+        sort: str = None,  # created | updated | pushed | full_name
+        direction: str = None,  # asc | desc
+        visibility: str = None,  # all | public | private
+        affiliation: str = None,  # owner + collaborator + organization_member
+    ) -> Iterator[dict]:
+        """
+        Docs: https://docs.github.com/en/rest/reference/repos#list-repositories-for-the-authenticated-user
+              https://docs.github.com/en/rest/reference/repos#list-repositories-for-a-user
+              https://docs.github.com/en/rest/reference/repos#list-organization-repositories
+        """
+        path = "/user/repos"
+        if username:
+            path = f"/users/{username}/repos"
+        elif org:
+            path = f"/orgs/{org}/repos"
+        params = {
+            "type": type,
+            "sort": sort,
+            "direction": direction,
+            "visibility": visibility,
+            "affiliation": affiliation,
+        }
+        yield from self.iter_items(path, params=params)
+
+    def iter_commits(
+        self,
+        owner: str,
+        repo: str,
+        sha: str = None,
+        path: str = None,
+        author: str = None,
+        since: str = None,
+        until: str = None,
+    ) -> Iterator[dict]:
+        """
+        Docs: https://docs.github.com/en/rest/reference/repos#list-commits
+        """
+        params = {
+            "sha": sha,
+            "path": path,
+            "author": author,
+            "since": since,
+            "until": until,
+        }
+        yield from self.iter_items(f"/repos/{owner}/{repo}/commits", params=params)
+
+    def iter_branches(
+        self,
+        owner: str,
+        repo: str,
+        protected: str = None,
+    ) -> Iterator[dict]:
+        """
+        Docs: https://docs.github.com/en/rest/reference/repos#list-branches
+        """
+        params = {"protected": protected}
+        yield from self.iter_items(f"/repos/{owner}/{repo}/branches", params=params)
+
+    def iter_all_commits(
+        self, owner: str, repo: str, author: str = None
+    ) -> Iterator[dict]:
+        """
+        Iterate over all commits in all branches.
+        """
+        branches = list(self.iter_branches(owner, repo))
+        logger.debug(
+            "Getting all commits from all %d branches: %s",
+            len(branches),
+            ", ".join(branch["name"] for branch in branches),
+        )
+        seen_shas = set()
+        for branch in branches:
+            branch_name = branch["name"]
+            for commit in self.iter_commits(
+                owner, repo, sha=branch_name, author=author
+            ):
+                sha = commit["sha"]
+                # since we're always iterating upward through the tree, from HEAD to the initial commit,
+                # I think (?) we can assume that if we run into a SHA we've already seen,
+                # continuing along that path will only retrace our steps from a previous branch
+                # (But idk, maybe there's some weird merge functionality that might void that guarantee?)
+                if sha in seen_shas:
+                    logger.debug(
+                        "Breaking out of branch %r early (already seen %r)",
+                        branch_name,
+                        sha,
+                    )
+                    break
+                seen_shas.add(sha)
+                yield commit
