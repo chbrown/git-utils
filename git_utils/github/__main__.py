@@ -5,7 +5,7 @@ import click
 
 import git_utils
 from . import print_response
-from .api import API
+from .client import Client
 
 
 @click.group(help="Execute GitHub API requests")
@@ -30,13 +30,13 @@ def cli(ctx: click.Context, token: str, verbose: int):
     logger = logging.getLogger("github-api")
     logger.debug("Logging at level %d", level)
     if token:
-        api = API.from_token(token)
+        client = Client.from_token(token)
     else:
         logger.warning("Could not find token; continuing without authentication.")
-        api = API()
+        client = Client()
     # pass along API instance to subcommands:
     ctx.ensure_object(dict)
-    ctx.obj["api"] = api
+    ctx.obj["client"] = client
 
 
 @cli.command()
@@ -50,7 +50,7 @@ def path(ctx: click.Context, path: str):
     """
     # TODO: figure out how to make this the default action
     # (where it runs if none of the other subcommands match)
-    print_response(ctx.obj["api"].request(path))
+    print_response(ctx.obj["client"].request(path))
 
 
 @cli.command()
@@ -60,7 +60,10 @@ def path(ctx: click.Context, path: str):
 @click.option("-r", "--repo", required=True, help="repository name")
 @click.pass_context
 def commits(ctx: click.Context, owner: str, repo: str):
-    ctx.obj["api"].commits(owner, repo)
+    client: Client = ctx.obj["client"]
+    url = f"/repos/{owner}/{repo}/commits"
+    for response in client.iter_first_and_last_responses(url):
+        print_response(response)
 
 
 @cli.command()
@@ -70,7 +73,10 @@ def commits(ctx: click.Context, owner: str, repo: str):
 @click.option("-r", "--repo", required=True, help="repository name")
 @click.pass_context
 def watchers(ctx: click.Context, owner: str, repo: str):
-    ctx.obj["api"].watchers(owner, repo)
+    client: Client = ctx.obj["client"]
+    url = f"/repos/{owner}/{repo}/subscribers"
+    for response in client.iter_first_and_last_responses(url):
+        print_response(response)
 
 
 @cli.command()
@@ -81,7 +87,10 @@ def watchers(ctx: click.Context, owner: str, repo: str):
 @click.option("-p", "--path", help="path in repository to list contents of", default="")
 @click.pass_context
 def contents(ctx: click.Context, owner: str, repo: str, path: str):
-    ctx.obj["api"].contents(owner, repo, path)
+    client: Client = ctx.obj["client"]
+    url = f"/repos/{owner}/{repo}/contents/{path}"
+    for response in client.iter_first_and_last_responses(url):
+        print_response(response)
 
 
 main = cli.main
