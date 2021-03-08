@@ -51,15 +51,6 @@ class Client:
         response.raise_for_status()
         return response
 
-    def get(self, url: str, **kwargs):
-        return self.request(url, method="GET", **kwargs)
-
-    def post(self, url: str, **kwargs):
-        return self.request(url, method="POST", **kwargs)
-
-    def delete(self, url: str, **kwargs):
-        return self.request(url, method="DELETE", **kwargs)
-
     def iter_responses(self, url: str, **kwargs) -> Iterator[requests.Response]:
         """
         Iterate over paginated responses.
