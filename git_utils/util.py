@@ -66,6 +66,29 @@ def alias_url(url: str) -> str:
     return url
 
 
+def autoname(url: str) -> str:
+    """
+    Generate flat repo name from URL based on hostname.
+
+    github.com      => `{owner}--{repo}`
+    bitbucket.org   => `bitbucket--{owner}--{repo}`
+    code.google.com => `googlecode--{project}`
+    """
+    split_result = urllib.parse.urlsplit(normalize_url(url))
+    hostname = split_result.hostname
+    path = split_result.path
+    if hostname == "github.com":
+        path = path.strip("/").removesuffix(".git")
+        return "--".join(path.split("/"))
+    if hostname == "bitbucket.org":
+        path = path.strip("/")
+        return "--".join(("bitbucket", *path.split("/")))
+    if hostname == "code.google.com":
+        path = split_result.path.removeprefix("/p").strip("/")
+        return "--".join(("googlecode", path))
+    raise NotImplementedError(f"Don't know how to autoname URL: {url}")
+
+
 class LazySet(Set):
     def __init__(self, iterable: Iterable):
         self.iterator = iter(iterable)
