@@ -60,7 +60,7 @@ class Client:
     def delete(self, url: str, **kwargs):
         return self.request(url, method="DELETE", **kwargs)
 
-    def iter_requests(self, url: str, **kwargs) -> Iterator[requests.Response]:
+    def iter_responses(self, url: str, **kwargs) -> Iterator[requests.Response]:
         """
         Iterate over paginated responses.
         """
@@ -74,11 +74,11 @@ class Client:
         }
         # the last page has no rel="next" link
         if "next" in links:
-            yield from self.iter_requests(links["next"], **kwargs)
+            yield from self.iter_responses(links["next"], **kwargs)
 
     def iter_items(self, url: str, **kwargs) -> Iterator:
         """
         Assuming each response is a JSON list.
         """
-        for response in self.iter_requests(url, **kwargs):
+        for response in self.iter_responses(url, **kwargs):
             yield from response.json()
