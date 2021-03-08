@@ -56,7 +56,15 @@ class Client:
         Iterate over paginated responses.
         """
         kwargs.setdefault("params", {}).setdefault("per_page", 100)
-        response = self.request(url, **kwargs)
+        try:
+            response = self.request(url, **kwargs)
+        except requests.exceptions.HTTPError as exc:
+            # intercept '409 Conflict' errors (which indicate an empty repo)
+            if exc.response.status_code == 409:
+                logger.debug("Stopping due to 409 error: %s", exc)
+                return
+            # re-raise all other errors
+            raise
         yield response
         link_header = response.headers.get("Link", "")
         links = {
